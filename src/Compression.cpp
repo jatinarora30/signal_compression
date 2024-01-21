@@ -13,11 +13,15 @@ Compression::Compression(int signalSize)
 }
 
 void Compression::printCompressionRatio() {
-  std::cout << "Original Signal Size: " << size_signal << " elements" << std::endl;
-  std::cout << "Compressed Signal Size: " << ThresholdedCoefficients.size() << " elements" << std::endl;
-  double compressionRatio = static_cast<double>(size_signal) / ThresholdedCoefficients.size();
+  std::cout << "Original Signal Size: " << size_signal << " elements"
+            << std::endl;
+  std::cout << "Compressed Signal Size: " << nonZeroValues.size()
+            << " elements" << std::endl;
+  double compressionRatio =
+      static_cast<double>(size_signal) / nonZeroValues.size();
   std::cout << "Compression Ratio: " << compressionRatio << std::endl;
 }
+
 Compression::~Compression() {
   std::cout << "[Compression] ~Compression" << std::endl;
 }
@@ -59,21 +63,46 @@ void Compression::printSignal() {
 void Compression::findCoefficients() {
   Coefficients = Inverse * Signal;
   applyThreshold();
+
+  // Print non-zero indices and values
+  std::cout << "Non-Zero Indices and Values: ";
+  for (const auto &entry : nonZeroValues) {
+    std::cout << entry.first << ":" << entry.second << " ";
+  }
+  std::cout << std::endl;
+
+  // Create ThresholdedCoefficients using nonZeroValues
+  ThresholdedCoefficients = Eigen::VectorXd::Zero(size_signal);
+  for (const auto &entry : nonZeroValues) {
+    int index = entry.first;
+    float value = entry.second;
+    ThresholdedCoefficients[index] = value;
+  }
 }
 
 void Compression::applyThreshold() {
-  ThresholdedCoefficients = Coefficients.array().abs();
-  ThresholdedCoefficients = (ThresholdedCoefficients.array() > threshold)
-                                .select(ThresholdedCoefficients, 0);
+  nonZeroValues.clear(); // Clear previous non-zero values
+  for (int i = 0; i < Coefficients.size(); ++i) {
+    float value = Coefficients[i];
+    if (std::abs(value) > threshold) {
+      nonZeroValues[i] = value;
+    }
+  }
 }
 
 void Compression::regenerateSignal() {
-  Signal = Wavelet * ThresholdedCoefficients;
+  Signal = Eigen::VectorXd::Zero(size_signal);
+
+  for (const auto &entry : nonZeroValues) {
+    int index = entry.first;
+    float value = entry.second;
+    Signal += Inverse.col(index) * value;
+  }
 }
 
 double Compression::calculateMSE() {
   Eigen::VectorXd error = Signal - ThresholdedCoefficients;
-  return error.squaredNorm() / Signal.size();
+  return error.squaredNorm() / size_signal;
 }
 
 double Compression::calculatePSNR() {
@@ -94,11 +123,12 @@ void Compression::printThresholdedCoefficients() {
 const Eigen::VectorXd &Compression::getSignal() const { return Signal; }
 
 int main() {
-  int signalSize = 250; // Change this to your desired signal size
+  int signalSize = 8; // Change this to your desired signal size
   Compression comp(signalSize);
 
   comp.printSignal();
   comp.findCoefficients();
+
   comp.printCoefficients();
   comp.printThresholdedCoefficients();
 

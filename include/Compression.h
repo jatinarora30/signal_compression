@@ -1,13 +1,16 @@
 #include <Eigen/Dense>
 #include <iostream>
+#include <vector>
+#include <map>
 
 class Compression {
 private:
   Eigen::VectorXd Signal, Coefficients, ThresholdedCoefficients;
   Eigen::MatrixXd Wavelet, Inverse;
-  int size_wavelet;
-  int size_signal;
-  double threshold = 4;
+  int size_wavelet = 8;
+  std::map<int, float> nonZeroValues;
+  int size_signal = 0;
+  double threshold = 0.5;
 
 public:
   Compression(int signalSize);
